@@ -34,6 +34,10 @@ static void dump_info(struct quirc *q)
 
 		quirc_extract(q, i, &code);
 		err = quirc_decode(&code, &data);
+		if (err == QUIRC_ERROR_DATA_ECC) {
+			quirc_flip(&code);
+			err = quirc_decode(&code, &data);
+		}
 
 		dump_cells(&code);
 		printf("\n");
@@ -150,7 +154,7 @@ static void draw_grid(SDL_Surface *screen, struct quirc *q, int index)
 
 	for (i = 0; i < 3; i++) {
 		struct quirc_capstone *cap = &q->capstones[qr->caps[i]];
-		char buf[8];
+		char buf[16];
 
 		snprintf(buf, sizeof(buf), "%d.%c", index, "ABC"[i]);
 		stringColor(screen, cap->center.x, cap->center.y, buf,

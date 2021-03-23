@@ -14,6 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <limits.h>
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
@@ -179,9 +180,8 @@ static uint8_t otsu(const struct quirc *q)
 	int numPixels = q->w * q->h;
 
 	// Calculate histogram
-	const int HISTOGRAM_SIZE = 256;
-	unsigned int histogram[HISTOGRAM_SIZE];
-	memset(histogram, 0, (HISTOGRAM_SIZE) * sizeof(unsigned int));
+	unsigned int histogram[UINT8_MAX + 1];
+	(void)memset(histogram, 0, sizeof(histogram));
 	uint8_t* ptr = q->image;
 	int length = numPixels;
 	while (length--) {
@@ -190,8 +190,9 @@ static uint8_t otsu(const struct quirc *q)
 	}
 
 	// Calculate weighted sum of histogram values
-	int sum = 0;
-	for (int i = 0; i < HISTOGRAM_SIZE; ++i) {
+	unsigned int sum = 0;
+	unsigned int i = 0;
+	for (i = 0; i <= UINT8_MAX; ++i) {
 		sum += i * histogram[i];
 	}
 
@@ -200,7 +201,7 @@ static uint8_t otsu(const struct quirc *q)
 	int q1 = 0;
 	double max = 0;
 	uint8_t threshold = 0;
-	for (int i = 0; i < HISTOGRAM_SIZE; ++i) {
+	for (i = 0; i <= UINT8_MAX; ++i) {
 		// Weighted background
 		q1 += histogram[i];
 		if (q1 == 0)
@@ -655,8 +656,11 @@ static int measure_timing_pattern(struct quirc *q, int index)
 	/* Choose the nearest allowable grid size */
 	size = scan * 2 + 13;
 	ver = (size - 15) / 4;
-	qr->grid_size = ver * 4 + 17;
+	if (ver > QUIRC_MAX_VERSION) {
+		return -1;
+	}
 
+	qr->grid_size = ver * 4 + 17;
 	return 0;
 }
 
@@ -852,7 +856,7 @@ static void rotate_capstone(struct quirc_capstone *cap,
 	struct quirc_point copy[4];
 	int j;
 	int best = 0;
-	int best_score = INT32_MAX;
+	int best_score = INT_MAX;
 
 	for (j = 0; j < 4; j++) {
 		struct quirc_point *p = &cap->corners[j];
@@ -1071,7 +1075,7 @@ static void test_grouping(struct quirc *q, int i)
 
 static void pixels_setup(struct quirc *q, uint8_t threshold)
 {
-	if (sizeof(*q->image) == sizeof(*q->pixels)) {
+	if (QUIRC_PIXEL_ALIAS_IMAGE) {
 		q->pixels = (quirc_pixel_t *)q->image;
 	}
 
@@ -1134,11 +1138,10 @@ void quirc_extract(const struct quirc *q, int index,
 
 	for (y = 0; y < qr->grid_size; y++) {
 		int x;
-
 		for (x = 0; x < qr->grid_size; x++) {
-			if (read_cell(q, index, x, y) > 0)
+			if (read_cell(q, index, x, y) > 0) {
 				code->cell_bitmap[i >> 3] |= (1 << (i & 7));
-
+			}
 			i++;
 		}
 	}
