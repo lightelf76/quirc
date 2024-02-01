@@ -15,10 +15,10 @@
 
 CC ?= gcc
 PREFIX ?= /usr/local
-SDL_CFLAGS != pkg-config --cflags sdl
-SDL_LIBS != pkg-config --libs sdl
+SDL_CFLAGS := $(shell pkg-config --cflags sdl 2>&1)
+SDL_LIBS = $(shell pkg-config --libs sdl)
 
-LIB_VERSION = 1.0
+LIB_VERSION = 1.2
 
 CFLAGS ?= -O3 -Wall -fPIC
 QUIRC_CFLAGS = -Ilib $(CFLAGS) $(SDL_CFLAGS)
@@ -35,17 +35,28 @@ DEMO_UTIL_OBJ = \
     demo/dthash.o \
     demo/demoutil.o
 
-OPENCV_CFLAGS != pkg-config --cflags opencv4
-OPENCV_LIBS != pkg-config --libs opencv4
+OPENCV_CFLAGS := $(shell pkg-config --cflags opencv4 2>&1)
+OPENCV_LIBS = $(shell pkg-config --libs opencv4)
 QUIRC_CXXFLAGS = $(QUIRC_CFLAGS) $(OPENCV_CFLAGS) --std=c++17
 
-all: libquirc.so qrtest inspect quirc-demo quirc-scanner
+.PHONY: all v4l sdl opencv install uninstall clean
+
+all: libquirc.so qrtest
+
+v4l: quirc-scanner
+
+sdl: inspect quirc-demo
+
+opencv: inspect-opencv quirc-demo-opencv
 
 qrtest: tests/dbgutil.o tests/qrtest.o libquirc.a
 	$(CC) -o $@ tests/dbgutil.o tests/qrtest.o libquirc.a $(LDFLAGS) -lm -ljpeg -lpng
 
 inspect: tests/dbgutil.o tests/inspect.o libquirc.a
 	$(CC) -o $@ tests/dbgutil.o tests/inspect.o libquirc.a $(LDFLAGS) -lm -ljpeg -lpng $(SDL_LIBS) -lSDL_gfx
+
+inspect-opencv: tests/dbgutil.o tests/inspect_opencv.o libquirc.a
+	$(CXX) -o $@ tests/dbgutil.o tests/inspect_opencv.o libquirc.a $(LDFLAGS) -lm -ljpeg -lpng $(OPENCV_LIBS)
 
 quirc-demo: $(DEMO_OBJ) $(DEMO_UTIL_OBJ) demo/demo.o libquirc.a
 	$(CC) -o $@ $(DEMO_OBJ) $(DEMO_UTIL_OBJ) demo/demo.o libquirc.a $(LDFLAGS) -lm -ljpeg $(SDL_LIBS) -lSDL_gfx
@@ -98,6 +109,7 @@ clean:
 	rm -f libquirc.so.$(LIB_VERSION)
 	rm -f qrtest
 	rm -f inspect
+	rm -f inspect-opencv
 	rm -f quirc-demo
 	rm -f quirc-demo-opencv
 	rm -f quirc-scanner
